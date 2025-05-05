@@ -1,4 +1,97 @@
-\chapter{Attachment}
-\label{cha:attachment}
+\titleformat{\chapter} {\normalfont\Large\bfseries}{Appendice \thechapter}{1em}{}
+\appendix
 
-\lipsum[1]
+\chapter{Decodifica seed FAAC SLH}
+\label{appendix:slhseed}
+
+Di seguito è mostrato il codice che viene eseguito nel Flipper Zero (firmware Unleashed) \cite{firmware} e, ipoteticamente, nel ricevitore FAAC XR2 per la decodifica del seed da una chiave di programmazione.
+\begin{lstlisting}[language=C,basicstyle=\small]
+if(((data_prg[7] == 0x52) && (data_prg[6] == 0x0F) && (data_prg[0] == 0x00))) {
+    faac_prog_mode = true;
+    // ProgMode ON
+    for(uint8_t i = data_prg[1] & 0xF; i != 0; i--) {
+        data_tmp = data_prg[2];
+
+        data_prg[2] = data_prg[2] >> 1 | (data_prg[3] & 1) << 7;
+        data_prg[3] = data_prg[3] >> 1 | (data_prg[4] & 1) << 7;
+        data_prg[4] = data_prg[4] >> 1 | (data_prg[5] & 1) << 7;
+        data_prg[5] = data_prg[5] >> 1 | (data_tmp & 1) << 7;
+    }
+    data_prg[2] ^= data_prg[1];
+    data_prg[3] ^= data_prg[1];
+    data_prg[4] ^= data_prg[1];
+    data_prg[5] ^= data_prg[1];
+
+    instance->seed = data_prg[5] << 24 | data_prg[4] << 16 | data_prg[3] << 8 |
+    data_prg[2];
+
+    uint32_t dec_prg_1 = data_prg[7] << 24 | data_prg[6] << 16 | data_prg[5] << 8 |
+                          data_prg[4];
+    uint32_t dec_prg_2 = data_prg[3] << 24 | data_prg[2] << 16 | data_prg[1] << 8 |
+                          data_prg[0];
+    instance->data_2 = (uint64_t)dec_prg_1 << 32 | dec_prg_2;
+    instance->cnt = data_prg[1];
+
+    *manufacture_name = "FAAC_SLH";
+    return;
+\end{lstlisting}
+
+\chapter{Funzioni di decodifica di una chiave normale in KeeLoq}
+\label{appendix:keeloq_functions}
+
+Di seguito sono riportate le varie implementazioni degli algoritmi di FAAC SLH e KeeLoq nel firmware Unleashed \cite{firmware} del Flipper Zero.\\
+La seguente funzione restituisce la chiave a 64 bit necessaria in KeeLoq a partire dal seed e dalla manufacturer key. Questa funzione si trova nel file \texttt{lib/subghz/protocols/keeloq\_common.c}.
+\begin{lstlisting}[language=C,basicstyle=\small]
+inline uint64_t subghz_protocol_keeloq_common_faac_learning
+    (const uint32_t seed, const uint64_t key) {
+    uint16_t hs = seed >> 16;
+    const uint16_t ending = 0x544D;
+    uint32_t lsb = (uint32_t)hs << 16 | ending;
+    uint64_t man =
+        (uint64_t)subghz_protocol_keeloq_common_encrypt(seed, key) << 32 |
+        subghz_protocol_keeloq_common_encrypt(lsb, key);
+    return man;
+}
+\end{lstlisting}
+
+La seguente funzione è l'implementazione della fase di crittografia di KeeLoq. Questa funzione si trova nel file \texttt{lib/subghz/protocols/keeloq\_common.c}.
+\begin{lstlisting}[language=C,basicstyle=\small]
+inline uint32_t subghz_protocol_keeloq_common_encrypt
+    (const uint32_t data, const uint64_t key) {
+    uint32_t x = data, r;
+    for(r = 0; r < 528; r++)
+        x = (x >> 1) ^ ((bit(x, 0) ^ bit(x, 16) ^ (uint32_t)bit(key, r & 63) ^
+                         bit(KEELOQ_NLF, g5(x, 1, 9, 20, 26, 31))) << 31);
+    return x;
+}
+\end{lstlisting}
+
+La seguente funzione è l'implementazione della fase di decrittografia di KeeLoq. Questa funzione si trova nel file \texttt{lib/subghz/protocols/keeloq\_common.c}.
+\begin{lstlisting}[language=C,basicstyle=\small]
+inline uint32_t subghz_protocol_keeloq_common_decrypt
+    (const uint32_t data, const uint64_t key) {
+    uint32_t x = data, r;
+    for(r = 0; r < 528; r++)
+        x = (x << 1) ^ bit(x, 31) ^ bit(x, 15) ^
+            (uint32_t)bit(key, (15 - r) & 63) ^
+            bit(KEELOQ_NLF, g5(x, 0, 8, 19, 25, 30));
+    return x;
+}
+\end{lstlisting}
+
+Il seguente segmento di codice estrae il valore del counter a partire dal code hop sfruttando le funzioni sopra riportate. Questa funzione si trova nel file \texttt{lib/subghz/protocols/faac\_slh.c}.
+\begin{lstlisting}[language=C,basicstyle=\small]
+for
+  M_EACH(manufacture_code, *subghz_keystore_get_data(keystore), SubGhzKeyArray_t) {
+      switch(manufacture_code->type) {
+      case KEELOQ_LEARNING_FAAC:
+          // FAAC Learning
+          man = subghz_protocol_keeloq_common_faac_learning(
+              instance->seed, manufacture_code->key);
+          decrypt = subghz_protocol_keeloq_common_decrypt(code_hop, man);
+          *manufacture_name = furi_string_get_cstr(manufacture_code->name);
+          break;
+      }
+  }
+instance->cnt = decrypt & 0xFFFFF;
+\end{lstlisting}

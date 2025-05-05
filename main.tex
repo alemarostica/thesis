@@ -33,10 +33,7 @@
 \hypersetup{breaklinks=true}
 % List
 \usepackage{enumitem}
-
-% START: DELETE ME
-\usepackage{lipsum}
-% END: DELETE ME
+\usepackage{listings}
 
 % Document
 \begin{document}
@@ -74,8 +71,9 @@
   \input{etc/abstract.tex}
 
   % Chapters
-  \input{chapters/desc.tex}
+  \input{chapters/intro.tex}
   \input{chapters/analysis.tex}
+  \input{chapters/desc.tex}
   \input{chapters/devel.tex}
 
   % Conclusions
@@ -84,13 +82,11 @@
   \endgroup
 
   % Bibliography
-  \addcontentsline{toc}{chapter}{Bibliography}
+  \addcontentsline{toc}{chapter}{Bibliografia}
   % Alphabetical order of authors
   \bibliographystyle{plain}
   \bibliography{bibliography.bib}
 
   % Attachments
-  \titleformat{\chapter} {\normalfont\Huge\bfseries}{Appendix \thechapter}{1em}{}
-  \appendix
   \input{attachments/attachment.tex}
 \end{document}
