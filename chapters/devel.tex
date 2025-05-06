@@ -1,4 +1,92 @@
-\chapter{Sviluppo emulatore del ricevitore FAAC XR2}
+\chapter{Sviluppo emulatore di FAAC XR2}
 \label{cha:development}
 
-aaa
+\section{Introduzione alla programmazione su Flipper Zero e idea dell’app}
+\label{sec:intro_emu}
+
+Flipper Zero mette a disposizione una toolchain notevolmente avanzata che astrae molti degli aspetti della programmazione embedded, tuttavia va sottolineata la relativa mancanza di documentazione approfondita: questo fatto, purtroppo, è limitante vista la notevole quantità di API, funzioni e macro messe a disposizione del programmatore. Inoltre, l’utilizzo del firmware Unleashed, un firmware non ufficiale, introduce un ulteriore grado di difficoltà vista la maggiore scarsità di informazioni riguardo al proprio funzionamento. Buona parte dello sviluppo dell’emulatore si è basato su una progressiva scoperta di nuove funzionalità del firmware partendo dall’osservazione del codice sorgente, da informazioni gentilmente fornite dagli sviluppatori e dall’osservazione di applicazioni sviluppate da altri utenti della comunità. \\
+L’applicazione dell’emulatore sviluppata non intende essere uno strumento necessariamente utile quanto più un “proof of concept” valido per comprendere il comportamento di un ricevitore genuino FAAC XR2. É importante ricordare la natura proprietaria del ricevitore che permette esclusivamente un’implementazione basata sui comportamenti osservati con un utilizzo relativamente standard.
+
+\section{Firmware Unleashed modificato ad-hoc}
+\label{sec:unleashed_mod}
+
+La scelta del firmware Unleashed è dovuta all’implementazione più dettagliata del protocollo FAAC SLH a cura dello sviluppatore xMasterX: non solo è in grado di distinugere tra chiavi normali e di programmazione ma è anche in grado di emulare un numero arbitrario di radiocomandi completamente personalizzabili, funzione estremamente utile per osservare numerosi comportamenti del ricevitore.\\
+Durante lo sviluppo dell’emulatore si presenta un problema: alla ricezione di una chiave normale l’implementazione del protocollo FAAC SLH è in grado di decodificarne il code hop esclusivamente dopo aver ricevuto la chiave di programmazione del radiocomando corrispondente, tuttavia, alla ricezione di una chiave di programmazione diversa, lo stato interno del ricevitore nel Flipper viene aggiornato per decodificare le chiavi di corrispondenti al secondo radiocomando. Questo comportamento causa due problemi:
+\begin{itemize}
+  \item Se il Flipper è impostato con il seed di un radiocomando specifico non potrà correttamente decodificare le chiavi di altri radiocomandi
+  \item Se il Flipper riceve una chiave di programmazione differente non sarà più in grado di decodificare le chiavi del radiocomando precedente a meno che non riceva da quest’ultimo una chiave di programmazione.
+\end{itemize}
+Il secondo problema è facilmente risolvibile con alcune linee di codice sotto riportate, la risoluzione del primo problema richiederebbe una notevole ristrutturazione del codice del firmware, al di fuori dello scopo di questo studio.\\
+Le modifiche apportate si trovano nel file \texttt{lib/subghz/protocols/faac\_slh.c}, a inizio file viene aggiunta la linea:
+\begin{lstlisting}[language=C,basicstyle=\small]
+  static bool already_programmed = false;
+\end{lstlisting}
+Questa variabile bloccherà lo stato della variabile seed interna al ricevitore una volta che questo è stato settato.\\
+Nella funzione di allocazione del decoder di FAAC SLH viene aggiunta questa linea:
+\begin{lstlisting}[language=C,basicstyle=\small]
+  already_programmed = false;
+\end{lstlisting}
+In questo modo, alla deallocazione del ricevitore sarà di nuovo possibile memorizzare un nuovo seed.\\
+Nella funzione \texttt{subghz\_protocol\_faac\_slh\_check\_remote\_controller}, durante la fase di decodifica della chiave di programmazione, la linea
+\begin{lstlisting}[language=C,basicstyle=\small]
+  instance->seed = data_prg[5] << 24 | data_prg[4] << 16 |
+                   data_prg[3] << 8 | data_prg[2];
+\end{lstlisting}
+viene sostituita con
+\begin{lstlisting}[language=C,basicstyle=\small]
+  if(!already_programmed) {
+      instance->seed = data_prg[5] << 24 | data_prg[4] << 16 |
+                       data_prg[3] << 8 | data_prg[2];
+      already_programmed = true;
+  }
+\end{lstlisting}
+Questo blocco condizionale controlla lo stato della precedente variabile \texttt{already\_programmed} e determina se è possibile aggiornare il seed interno al ricevitore o meno. Inoltre, nel momento in cui il seed è aggiornato si imposta la variabile flag a \texttt{true} cosicché qualsiasi successivo tentativo di aggiornamento del seed sarà ignorato.\\
+Una fork del codice sorgente di Unleashed è stata creata e modificata appositamente \cite{firmware_mod}.
+
+\section{Struttura del codice sorgente}
+\label{sec:source}
+
+Il progetto si compone di quattro blocchi principali:
+\begin{itemize}
+  \item L’app principale: composto dai file faac\_slh\_rx\_emu\_app.c, faac\_slh\_rx\_emu\_about.h, faac\_slh\_rx\_emu\_structs.h, è il blocco che gestisce l’allocazione in memoria delle strutture dati e la logica dei menù, GUI e navigazione. Alcune caratteristiche notevoli di questo blocco sono:
+  \begin{itemize}
+    \item La riallocazione dei widget widget\_last\_transmission e widget\_memory ad ogni visualizzazione, necessaria ad aggiornarli ad ogni cambiamento.
+    \item La deallocazione e riallocazione del componente ricevitore nel momento in cui il sottomenù “Program new remote” è attivato, necessaria per memorizzare un nuovo radiocomando con seed eventualmente differente.
+    \item L’inizializzazione ai valori valori count nella cronologia e nella memoria a \texttt{0xFFF00000}, valore che indica che il count non è stato inizializzato (al di fuori del range [0x00000--0xFFFFF]).
+    \item L’inizializzazione ai valori valori seed nella cronologia e nella memoria a \texttt{0x00000000}, valore che indica che il seed non è stato inizializzato.
+    \item La lunghezza della cronologia (8 chiavi) stabilita in base alle osservazioni precedentmente riportate.
+  \end{itemize}
+  \item Il componente del ricevitore: composto dai file faac\_slh\_rm\_emu\_subghz.c, faac\_slh\_rx\_emu\_subghz.h, è ciò che gestisce l’inizializzazione e la configurazione dei dispositivi subghz del Flipper. Buona parte di questo codice è basato sul corrispondente componente nell’applicazione SubGHz Rolling Flaws di JamisonDerek \cite{rolling_flaws} con alcune modifiche alle funzioni start\_listening e stop\_listening per renderle compatibili con la modifica al firmware.
+  \item Il componente di parsing: composto dai file faac\_slh\_rx\_emu\_parser.c, faac\_slh\_rm\_emu\_parser.h, è il componente che gestisce il parsing dei dati decodificati dal Flipper e contiene la logica di autenticazione del radiocomando. Questo blocco contiene l’implementazione dei meccanismi osservati del ricevitore FAAC XR2. Alcuni aspetti notevoli di questo blocco sono:
+  \begin{itemize}
+    \item La presenza di due routine per gestire separatamente le chiavi normali e quelle di programmazione.
+    \item La funzione is\_within\_range che controlla se un valore rientra in un range circolare, necessaria per controllare i valori di count.
+    \item A memoria vuota è possibile che il ricevitore del Flipper sia inizializzato con un seed, è quindi necessario che al momento del parsing dei dati ricevuti si distingua il caso in cui un valore di count è decodificato dal caso in cui questa cosa non avviene.
+    \item Nel parsing della chiave di programmazione la chiave è preceduta dai caratteri “Ke:” invece che “Key:”, questo sembra essere un errore di battitura nel firmware.
+  \end{itemize}
+  \item Funzioni di utilità: i file faac\_slh\_rx\_emu\_utils.c, faac\_slh\_rx\_emu\_utils.h contengono funzioni che estraggono valori esadecimali da oggetti FuriString e una funzione che forza il refresh dello schermo del Flipper.
+\end{itemize}
+
+\section{Funzionalità dell'applicazione}
+\label{sec:func}
+
+La schermata iniziale dell’applicazione mette a disposizione 5 funzionalità accessibili tramite un menù a lista:
+\begin{itemize}
+  \item Pagina “About”: questo sottomenù offre informazioni riguardo l’applicazione, istruzioni per l’uso e URL al codice sorgente.
+  \item Pagina “Receive”: questo sottomenù offre la funzionalità di ricezione standard del ricevitore e simula la situazione di ascolto normale del ricevitore FAAC SLH. In questa vista l’utente può esaminare segnali ricevuti dal Flipper e osservare se vengono autenticati dall’applicazione o meno e sincronizzare radiocomandi nelle varie maniere possibili precedentemente elencate.
+  \item Pagina “Program new remote”: questo sottomenù permette di memorizzare un nuovo seed per l’algoritmo FAAC SLH nella memoria dell’applicazione. Effettuando tale operazione, l’applicazione entrà in una modalità di prima programmazione, in cui inizializzerà la memoria con il primo radiocomando ricevuto. Ad ogni accesso di questo sottomenù la memoria viene azzerata per permettere la memorizzazione di un nuovo seed.
+  \item Pagina “Memory”: questo sottomenù permette la visualizzazione dell stato della memoria dell’applicazione, mostra a schermo l’eventuale seed con cui è inizializzata la memoria e i codici seriali dei vari radiocomandi sincronizzati. Questa pagina è aggiornata ogni qualvolta la si apra.
+  \item Pagina “Last transmission”: questo sottomenù permette la visualizzazione dell’ultima trasmissione ricevuta nel formato generato dall’implementazione del protocollo FAAC SLH nel firmware Unleashed. Questa pagina è aggiornata ogni qualvolta la si apra.
+\end{itemize}
+
+\section{Limiti dell'applicazione}
+\label{sec:limits}
+
+Come menzionato precedentemente, l’implementazione del protocollo FAAC SLH nel firmware Unleashed, senza una riscrittura sostanziale, crea una serie di limitazioni nella funzionalità dell’emulatore. Tralasciando la lieve modifica effettuata per permettere all’emulatore di mantenere in memoria il seed di un radiocomando anche dopo la ricezione di una chiave di programmazione diversa, vanno sottolineate le seguenti limitazioni:
+\begin{itemize}
+  \item Un ricevitore FAAC XR2 supporta 2 canali, corrispondenti ai 2 pulsanti su un radiocomando FAAC XT2. Di fatto i due pulsanti si comportano in maniera totalmente indipendente, cioè hanno numero seriale e seed differente tra di loro. L’emulatore al momento supporta esclusivamente un canale.
+  \item In un singolo canale del ricevitore è possibile memorizzare più di un seed (per un massimo di 248 distribuiti sui canali del ricevitore), il ricevitore è quindi in grado di autenticare più radiocomandi con seed differenti sullo stesso canale. Per implementazione del protocollo FAAC SLH nel firmware Unleashed, ricreare questa funzionalità nell’emulatore richiederebbe una profonda riscrittura del codice sorgente, cosa fuori dallo scopo di questo studio.
+  \item Come menzionato durante la discussione sul comportamento del ricevitore in caso di resync e programmazione, non è chiara la lunghezza della cronologia di chiavi passate mantenuta in memoria, si è quindi deciso di usare la lunghezza di 8. Questo potrebbe non rappresentare in maniera accurata il comportamento interno del ricevitore.
+  \item Non è chiaro quanti radiocomandi con lo stesso seed possano venire sincronizzati dal ricevitore per aprire un canale, almeno 16 sono stati sincronizzati emulandoli con un Flipper Zero.
+\end{itemize}
+

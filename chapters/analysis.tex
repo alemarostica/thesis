@@ -116,7 +116,7 @@ Il ciclo principale di crittografia dell’algoritmo è composto di 528 iterazio
   \def\stackalignment{r}\stackunder{
     \includegraphics[width=\linewidth]{images/decrypt.png}
   } %
-  {\scriptsize \parbox[position]{\linewidth}{ Fonte: \cite{keeloqwiki}} }
+  {\scriptsize \parbox[t]{\linewidth}{ Fonte: \cite{keeloqwiki}} }
   \caption{Fase di decrypt in KeeLoq}
   \label{fig:keeloq_decrypt}
 \end{wrapfigure}
@@ -162,9 +162,78 @@ Il codice di questi vari procedimenti è riportato nell'appendice B.\\
 Due note:
 \begin{itemize}
   \item Il count è composto di solo 5 cifre esadecimali (5 nibble)
-  \item A volte la lettura della chiave di programmazione di un singolo radiocomando effettuata col Flipper Zero riporta un risultato peculiare differente dal normale: se il seed di un radiocomando è XX XX YY YY a volte YY YY XX XX viene letto. Non è chiaro se questo fatto risulti da un errore nell’implementazione del protocollo nel firmware Unleashed o se sia un comportamento anomalo del radiocomando.
+  \item A volte la lettura della chiave di programmazione di un singolo radiocomando effettuata col Flipper Zero riporta un risultato peculiare differente dal normale: se il seed di un radiocomando è \texttt{XX XX YY YY} a volte \texttt{YY YY XX XX} viene letto. Non è chiaro se questo fatto risulti da un errore nell’implementazione del protocollo nel firmware Unleashed o se sia un comportamento anomalo del radiocomando.
 \end{itemize}
 In base a quanto dedotto dal codice del firmware, il code fix non entra in gioco nel processo di decodifica del valore count, infatti, come sarà spiegato successivamente, il ruolo di questo valore è cruciale nella sincornizzazione di multipli radiocomandi sullo stesso ricevitore.\\
 É importante sottolineare come il processo appena descritto avviene nel Flipper Zero durante la lettura dei segnali FAAC SLH e non nel ricevitore originale FAAC SLH: è altamente probabile che internamente il ricevitore segua una logica ben differente quando si tratta di decriptare ed autenticare i segnali ricevuti, tuttavia la logica di KeeLoq rimane valida. Per esempio si potrebbe ipotizzare che il ricevitore decripti il segnale ricevuto dal radiocomando e verifichi il valore del counter, oppure che il ricevitore stesso calcoli il code hop previsto e verifichi che quello ricevuto corrisponda.\\
 
+\subsection{L'autenticazione}
+\label{sub:auth}
 
+\begin{wrapfigure}
+  {r}{.5\textwidth} %
+  \centering
+  \def\stackalignment{r}\stackunder{
+    \includegraphics[width=\linewidth]{images/count_pie.png}
+  } %
+  {\scriptsize \parbox[t]{\linewidth}{Intervalli non in scala}}
+  \caption{Il counter circolare}
+\end{wrapfigure}
+
+Come menzionato precedentemente, FAAC SLH è progettato per essere tollerante a desincronizzazioni entro un certo limite.\\
+Ricordando che non possiamo conoscere effettivamente il funzionamento interno del ricevitore, ipotizziamo che alla ricezione di un segnale lo decripti tramite l’algoritmo precedentemente descritto e confronti il valore del counter ricevuto con un valore interno mantenuto in una qualche memoria, alcune proprietà possono essere osservate effettuando specifiche emulazioni di radiocomandi con il Flipper Zero.
+Prima di tutto si può osservare che il counter interno del ricevitore deve essere composto di soli 20 bit (5 cifre esadecimali) seppure durante l’emulazione del radiocomando il Flipper permetta di inserire valori nel counter di 6 cifre esadecimali. Questo si può dedurre dal fatto che radiocomandi con valori di count \textsl{0x0yyyyy}, \texttt{0x1yyyyy}, etc autenticano tutti correttamente sul ricevitore.\\
+In secundis, il valore di count ha un comportamento ciclico: arrivato al valore \texttt{0xFFFFF} il counter ritorna al valore \texttt{0x00000} e continua ad autenticare correttamente.\\
+Il ricevitore accetta valori del count che distano di massimo 0x20 (32) valori dopo l’ultimo autenticato.\\
+Oltre i 32 valori accettati ed entro 0x8000 (32768) valori dopo l’ultimo autenticato il segnale è considerato futuro. In questo caso il ricevitore non autentica il radiocomando ma tenta una resincronizzazione. Per resincronizzare il counter interno del ricevitore è necessaria un’altra chiave normale futura entro il range precedentemente menzionato di futuro e appena successiva, cioè il counter della seconda chiave deve essere esattamente successivo a quello della prima futura. La necessità di due chiavi sequenziali per la resincronizzazione al futuro restringe il massimo valore che può avere un radiocomando per resincronizzare il ricevitore a counter + 0x7FFF.\\
+Un comportamento interessante si può osservare inviando una sequenza di 4 chiavi di questo tipo: chiave accettabile > chiave futura > chiave accettabile > chiave futura. Elenchiamo i comportamenti del ricevitore ad ogni chiave ricevuta:
+\begin{itemize}
+  \item Alla prima accettabile il ricevitore autentica correttamente
+  \item Alla prima chiave futura il ricevitore non autentica il radiocomando
+  \item Alla seconda chiave accettabile il ricevitore autentica il radiocomando: questo implica che il contatore interno del ricevitore non è aggiornato al futuro alla prima chiave futura ricevuta, tuttavia potrebbe essere in uno stato in cui attende anche una possibile chiave futura in sequenza alla precedente
+  \item Alla seconda chiave futura il ricevitore autentica il radiocomando futuro e si risincronizza a tale futuro, il radiocomando precedentemente accettabile non viene più autenticato
+\end{itemize}
+Questi comportamenti sembrano puntare alla possibilità che il ricevitore tenga in memoria una cronologia di chiavi passate ricevute. Per testare la lunghezza di questa cronologia vengono inviati al ricevitore una chiave futura che non autentica, un numero variabile crescente di chiavi accettabili e, infine, una chiave esattamente successiva alla prima. Cominciando con una sola chiave accettabile tra le due future si aumenta il numero di chiavi accettabili fino a quando la seconda chiave futura (l’ultima della sequenza) smette di risincronizzare il ricevitore. Purtroppo, dopo numerosi tentativi questo metodo non ha portato risultati conclusivi: ripetendo più volte lo stesso esperimento il ricevitore ha smesso di risincronizzare dopo differenti numeri di chiavi accettabili centrali, tuttavia sembra non superare mai il numero di 8 chiavi passate mantenute nella cronologia. É importante sottolineare come ad ogni test di questo tipo effettuato la memoria del ricevitore è svuotata secondo la procedura esplicata nel manuale e successivamente reinizializzata ad un radiocomando emulato, c’è la possibilità che ogni inizializzazione di memoria definisca una lunghezza della memoria differente o, più probabilmente, ognuna delle ripetizioni del segnale trasmesse dal radiocomando sia registrata nella cronologia. In ogni caso non si può essere certi della lunghezza effettiva della cronologia.\\
+Il procedimento di risincronizzazione in caso di chiave futura sembra essere molto simile al processo di memorizzazione del radiocomando. Questo processo verrà dettagliato nel capitolo successivo, dove si avranno più informazioni per fare ipotesi più informate.\\
+
+\section{Funzionalità: TX coding e master/slave}
+\label{sec:func}
+
+Il radiocomandi FAAC SLH mettono a disposizione due meccanismi utili alla comodità di utilizzo e ad aumentare la versatilità del sistema.\\
+Analizziamo per prima la funzionalità di TX coding che, in base al comportamento osservato, sembra essere funzionale alla meccanica master/slave. Come discusso precedentemente, un radiocomando in modalità programmazione invia un payload contenente il proprio seed. Secondo una procedura descritta nel manuale di utilizzo dei radiocomandi [INSERIRLO], un radiocomando può assumere il seed di un altro radiocomando così da poter autenticarsi correttamente nei ricevitori che già avevano memorizzato l’altro radiocomando. In base a letture effettuate tramite il Flipper Zero delle trasmissioni del radiocomando a cui è stato cambiato il seed seguendo il procedimento di TX coding si conferma il comportamento atteso: il seed del radiocomando ricevente viene sostituito dal seed del radiocomando programmante.\\
+Analizziamo ora la funzionalità master/slave, seppur poco rilevante allo scopo di questo studio. Un radiocomando FAAC SLH esce di fabbrica in modalità “master”, da manuale \cite{man1} e come osservabile in base al comportamento, si deduce che questa modalità implica la capacità del radiocomando di trasmettere la chiave di programmazione. Il radiocomando può essere trasformato in uno “slave” seguendo un semplice procedimento descritto nel manuale, in questa modalità perderà la capacità di trasmettere il seed, pur continuando ad operare nella stessa maniera per quanto riguardo il resto delle funzionalità. Il radiocomando sembra anche cambiare il proprio valore serial quando trasformato in uno slave, mantenendosi comunque nel range [A0000000--A0FFFFFF].\\
+Chiaramente queste funzionalità sono sviluppate al fine di semplificare l’utilizzo del sistema alla necessità di multipli radiocomandi per un singolo ricevitore: come spiegato nel manuale, una volta che il corretto seed è registrato in un radiocomando (tramite la meccanica di TX coding appena descritta) è sufficiente inviare due chiavi in sequenza perché il ricevitore cominci ad autenticare un nuovo radiocomando insieme a tutti gli altri già precedentemente registrati. Il ricevitore, chiaramente, non accetta due radiocomandi con lo stesso code fix ma count differenti perché, in questo caso, si incapperebbe nel controllo del valore del count che non necessariamente coincide tra i due.\\
+Il funzionamento di questa meccanica fornisce un'importante intuizione sul funzionamento interno del ricevitore: a patto che il ricevitore non abbia memorizzato il massimo numero di radiocomandi, al fine di aprire la barriera controllata dal ricevitore è necessario un qualsiasi segnale che fornisca un code hop valido e abbia un code fix differente da altri già memorizzati, più semplicemente il segnale deve essere generato a partire dal seed memorizzato nel ricevitore e avere un code fix non già memorizzato, il ricevitore si occuperà in questo caso di sincronizzare un nuovo radiocomando in base ai segnali ricevuti.\\
+
+\section{Ipotesi informata sul funzionamento interno del ricevitore}
+\label{sec:ipothesis}
+
+In base alle osservazioni fino ad ora descritte si può assumere un processo di autenticazione dei radiocomandi interno al ricevitore che segue questi passi in ordine:
+\begin{itemize}
+  \item Alla ricezione di un segnale il ricevitore controlla il valore del counter della chiave ricevuta (o decifrando il segnale o controllando se uno dei possibili code hop validi ottenibili da seed e counter entro un certo range corrisponde con quello ricevuto).
+  \item Nel caso in cui il counter ricevuto rientri nel range di valori validi per uno dei code fix salvati in memoria il ricevitore controlla se il code fix della chiave ricevuta corrisponde a quella del ricevitore corrispondente al code fix appena menzionato, in caso positivo la barriera viene aperta e il counter di tale entry in memoria aggiornato.
+  \item Altrimenti, nel caso in cui il counter ricevuto rientri nel range di valori futuri per una delle entries in memoria lo stesso controllo del caso precedente viene eseguito ma il ricevitore attiva la modalità resync.
+  \item In una qualsiasi altra situazione il ricevitore non reagisce.
+\end{itemize}
+Ad una ricezione con la modalità resync attivata si può ipotizzare che il ricevitore controlli la presenza, nella cronologia delle ricezioni descritta precedentemente, di una chiave immediatamente precedente a quella appena ricevuta (con code fix corrispondente).\\
+Si può inoltre ipotizzare che l’inizializzazione del sistema avvenga in questa maniera:
+\begin{itemize}
+  \item Il ricevitore riceve una chiave di programmazione e memorizza il seed decifrato nella propria memoria
+  \item Il ricevitore attiva una modalità di programmazione di un nuovo radiocomando
+\end{itemize}
+Infine, si può ipotizzare che la memorizzazione di un nuovo radiocomando, sia in caso di prima memorizzazione che altrimenti, sia simile alla procedura di resync, ma invocata senza un limite al range del valore del counter.
+
+\section{Un possibile attacco brute-force contro FAAC SLH}
+\label{sec:attack}
+
+Le funzionalità descritte precedentemente aprono la possibilità di un bruteforce attack viste alcune caratteristiche del sistema FAAC SLH.\\
+Ricordiamo tali caratteristiche del sistema:
+\begin{itemize}
+  \item Il ricevitore si sincronizza con qualsiasi radiocomando contenente il seed corretto tranne al più radiocomandi con un code fix già memorizzato
+  \item Nel processo di autenticazione il code fix è rilevante solo dopo aver eventualmente trovato un valore di count accettabile o futuro
+\end{itemize}
+Di conseguenza, catturando due segnali consecutivi da un radiocomando genuino, un algoritmo (come suggerito in una chat privata dal creatore del firmware Unleashed) potrebbe iterare l’algoritmo KeeLoq (versione FAAC SLH) per ogni possibile valore del seed (2\^32) per ogni possibile valore del counter (2\^20) finché non trova una sequenza di due valori di code hop indentica a quella catturata. A questo punto, ottenuto il seed, si può sfruttare il funzionamento del ricevitore per sincronizzare un memoria un nuovo radiocomando in idealmente pochi tentativi o addirittura clonare il radiocomando catturato e riniscronizzarlo ad un futuro prossimo.\\
+Va sottolineato il fatto che questa possibilità si presenta solo dal momento che la Manufacture key di FAAC SLH è nota, altrimenti un ulteriore spazio di 2\^32 valori dovrebbe essere testato.\\
+Questo approccio deve coprire uno spazio di 2\^32 * 2\^20 valori (tutti seed e count possibili), risulta quindi non realisticamente fattibile in tempi brevi su CPU, più plausibile è un’implementazione che sfrutta accelerazioni hardware come OpenCL, ROCm, HIP p CUDA.\\
+Assumendo una GPU Nvidia RTX 3080 con una frequenza di clock di 2 Ghz e 8704 core e assumendo un implementazione assembly ottimizzata che impiega 2200 (nota a piè di pagina n. 4 in \cite{cryptoeprint}) cicli di clock per una intera crittografia KeeLoq si può coprire l’intero spazio delle chiavi in un tempo massimo di 160 ore, non pratico ma non implausibile. Tale algoritmo di bruteforce ignora inoltre numerose possibilità come approssimazioni lineari della Non Linear Function di KeeLoq e techniche di scorrimento ed algebriche che potrebbero ridurre notevolmente il tempo di esecuzione \cite{cryptoeprint,algebraic_slide,attack,periodic_ciphers}.
+Un programma in CUDA proof-of-concept di questa idea è riportato in appendice C con la manufacturer key di FAAC oscurata per questioni legali.
