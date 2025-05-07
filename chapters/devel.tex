@@ -48,7 +48,7 @@ Una fork del codice sorgente di Unleashed è stata creata e modificata appositam
 
 Il progetto si compone di quattro blocchi principali:
 \begin{itemize}
-  \item L’app principale: composto dai file faac\_slh\_rx\_emu\_app.c, faac\_slh\_rx\_emu\_about.h, faac\_slh\_rx\_emu\_structs.h, è il blocco che gestisce l’allocazione in memoria delle strutture dati e la logica dei menù, GUI e navigazione. Alcune caratteristiche notevoli di questo blocco sono:
+  \item L’app principale: composto dai file \texttt{faac\_slh\_rx\_emu\_app.c}, \texttt{faac\_slh\_rx\_emu\_about.h},\\\texttt{faac\_slh\_rx\_emu\_structs.h}, è il blocco che gestisce l’allocazione in memoria delle strutture dati e la logica dei menù, GUI e navigazione. Alcune caratteristiche notevoli di questo blocco sono:
   \begin{itemize}
     \item La riallocazione dei widget widget\_last\_transmission e widget\_memory ad ogni visualizzazione, necessaria ad aggiornarli ad ogni cambiamento.
     \item La deallocazione e riallocazione del componente ricevitore nel momento in cui il sottomenù “Program new remote” è attivato, necessaria per memorizzare un nuovo radiocomando con seed eventualmente differente.
@@ -56,15 +56,15 @@ Il progetto si compone di quattro blocchi principali:
     \item L’inizializzazione ai valori valori seed nella cronologia e nella memoria a \texttt{0x00000000}, valore che indica che il seed non è stato inizializzato.
     \item La lunghezza della cronologia (8 chiavi) stabilita in base alle osservazioni precedentmente riportate.
   \end{itemize}
-  \item Il componente del ricevitore: composto dai file faac\_slh\_rm\_emu\_subghz.c, faac\_slh\_rx\_emu\_subghz.h, è ciò che gestisce l’inizializzazione e la configurazione dei dispositivi subghz del Flipper. Buona parte di questo codice è basato sul corrispondente componente nell’applicazione SubGHz Rolling Flaws di JamisonDerek \cite{rolling_flaws} con alcune modifiche alle funzioni start\_listening e stop\_listening per renderle compatibili con la modifica al firmware.
-  \item Il componente di parsing: composto dai file faac\_slh\_rx\_emu\_parser.c, faac\_slh\_rm\_emu\_parser.h, è il componente che gestisce il parsing dei dati decodificati dal Flipper e contiene la logica di autenticazione del radiocomando. Questo blocco contiene l’implementazione dei meccanismi osservati del ricevitore FAAC XR2. Alcuni aspetti notevoli di questo blocco sono:
+  \item Il componente del ricevitore: composto dai file \texttt{faac\_slh\_rm\_emu\_subghz.c},\\\texttt{faac\_slh\_rx\_emu\_subghz.h}, è ciò che gestisce l’inizializzazione e la configurazione dei dispositivi subghz del Flipper. Buona parte di questo codice è basato sul corrispondente componente nell’applicazione SubGHz Rolling Flaws di JamisonDerek \cite{rolling_flaws} con alcune modifiche alle funzioni start\_listening e stop\_listening per renderle compatibili con la modifica al firmware.
+  \item Il componente di parsing: composto dai file \texttt{faac\_slh\_rx\_emu\_parser.c},\\\texttt{faac\_slh\_rm\_emu\_parser.h}, è il componente che gestisce il parsing dei dati decodificati dal Flipper e contiene la logica di autenticazione del radiocomando. Questo blocco contiene l’implementazione dei meccanismi osservati del ricevitore FAAC XR2. Alcuni aspetti notevoli di questo blocco sono:
   \begin{itemize}
     \item La presenza di due routine per gestire separatamente le chiavi normali e quelle di programmazione.
     \item La funzione is\_within\_range che controlla se un valore rientra in un range circolare, necessaria per controllare i valori di count.
     \item A memoria vuota è possibile che il ricevitore del Flipper sia inizializzato con un seed, è quindi necessario che al momento del parsing dei dati ricevuti si distingua il caso in cui un valore di count è decodificato dal caso in cui questa cosa non avviene.
     \item Nel parsing della chiave di programmazione la chiave è preceduta dai caratteri “Ke:” invece che “Key:”, questo sembra essere un errore di battitura nel firmware.
   \end{itemize}
-  \item Funzioni di utilità: i file faac\_slh\_rx\_emu\_utils.c, faac\_slh\_rx\_emu\_utils.h contengono funzioni che estraggono valori esadecimali da oggetti FuriString e una funzione che forza il refresh dello schermo del Flipper.
+  \item Funzioni di utilità: i file \texttt{faac\_slh\_rx\_emu\_utils.c}, \texttt{faac\_slh\_rx\_emu\_utils.h} contengono funzioni che estraggono valori esadecimali da oggetti FuriString e una funzione che forza il refresh dello schermo del Flipper.
 \end{itemize}
 
 \section{Funzionalità dell'applicazione}

@@ -99,7 +99,7 @@ instance->cnt = decrypt & 0xFFFFF;
 \chapter{Brute-forcer del seed di FAAC SLH in CUDA}
 \label{appendix:cuda}
 
-Di seguito è riportato il codice in CUDA dell'algoritmo di brute forcing del seed di FAAC SLH. Tale algoritmo assume che due chiavi normali in sequnza siano state catturate e prende in input i due code hop e il serial intercettati.
+Di seguito è riportato il codice in CUDA dell'algoritmo di brute forcing del seed di FAAC SLH. Tale algoritmo assume che due chiavi normali in sequnza siano state catturate e ne prende in input i due code hop ed il code fix.
 \begin{lstlisting}[language=C++,basicstyle=\small,showstringspaces=false]
 #include <cstdlib>
 #include <stdio.h>
@@ -109,7 +109,7 @@ Di seguito è riportato il codice in CUDA dell'algoritmo di brute forcing del se
 #include <stdbool.h>
 #include <cuda_runtime.h>
 
-#define MFKEY 0xFFFFFFFFFFFFFFFF
+#define MFKEY 0xXXXXXXXXXXXXXXXX // Qui va la Manufacturer Key
 #define KEELOQ_NLF 0x3A5C742E
 #define bit(x, n) (((x) >> (n)) & 1)
 #define g5(x, a, b, c, d, e) (bit(x, a) + bit(x, b) * 2 + \\
