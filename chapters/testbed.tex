@@ -1,0 +1,28 @@
+\chapter{Testbed: il Flipper Zero}
+\label{cha:testbed}
+
+Il Flipper Zero è un dispositivo portatile multi-strumento progettato per interagire con sistemi digitali ed hardware. Nell'ambito di questo studio sono notevoli le capacità di lettura, analisi, trasmissione e clonazione di segnali su frequenze subghz (<1GHz).\\
+Di notevole rilevanza è la natura modulare ed open source del dispositivo che ne permette all'utente il pieno controllo del firmware. Inoltre offre funzionalità di debugging tramite firmware blackmagic (implementato nel dispositivo WiFi DevBoard for Flipper Zero).\\
+Le funzionalità più cruciali per questo studio sono due:
+\begin{itemize}
+  \item Il Flipper Zero è in grado di intercettare un segnale subghz (FAAC SLH in questo caso), analizzarlo e decodificarlo secondo le possibilità dell'algoritmo
+  \item Il Flipper Zero è in grado di emulare numerosi protocolli subghz di radiocomandi per sistemi di accesso
+\end{itemize}
+Queste funzionalità sono già implementate nel firmware ufficiale \cite{off_firmware} ma, in particolare, il protocollo FAAC SLH è implementato solo parzialmente: alcune trasmissioni speciali non sono correttamente analizzate dal Flipper Zero e non è disponibile l'emulazione di un radiocomando FAAC SLH.\\
+A risolvere questo problema entra in gioco un firmware non ufficiale: Unleashed \cite{firmware}. Quest'ultimo implementa completamente il protocollo FAAC SLH e ne permette l'emulazione.\\
+Un notevole problema riscontrato durante questo studio è la relativa mancanza di documentazione del codice sorgente. Seppure strutture dati e funzioni siano discretamente descritte, manca un qualche documento che aiuti un principiante ad introdursi nella programmazione su Flipper Zero. Per comprendere come avviene lo sviluppo di un'applicazione è necessario spendere tempo leggendo il codice sorgente di altre applicazioni esistenti o seguendo guide online che, tuttavia, tendono a non essere né approfondite né aggiornate. A questo proposito la playlist "Flipper Zero - CODE" di Derek Jamison su YouTube si è rivelata molto utile \cite{derek}.\\
+Il Flipper Zero è di norma in grado di riportare precisamente errori che ne hanno causato il crash, per esempio \texttt{NULL pointer dereference}, \texttt{BusFault}, \texttt{furi\_check failed} e altri. Tuttavia, durante lo sviluppo dell'emulatore, si è osservato come una gestione erronea di puntatori e memoria dinamica porti a comportamenti imprevedibili nel Flipper Zero: in particolare, provare ad accedere a memoria deallocata non sempre cause l'errore \texttt{NULL pointer dereference}. A questo proposito è importante l'utilizzo della devboard per effettuare debugging linea per linea del codice dell'applicazione.\\
+Anche la documentazione sull'utilizzo della devboard è scarsa \cite{devboard}. Il seguente procedimento per effettuare debugging si è rilevato efficiente e affidabile:
+\begin{itemize}
+  \item Si connette la devboard al Flipper Zero spento
+  \item Si connette la devboard tramite USB al PC
+  \item Si accende il Flipper Zero normalmente o connettendolo via USB al cavo
+  \item Si lancia la sessione di debug
+  \item Si lancia l'applicazione sviluppata sul Flipper Zero, la sessione di debug incontrerà un breakpoint automatico che permetterà di impostare aggiuntivi breakpoint nel codice dell'applicazione sviluppata
+\end{itemize}
+Alcune note:
+\begin{itemize}
+  \item É stato usato Visual Studio Code impostato come descritto nella documentazione per sviluppatori \cite{devtools}.
+  \item La sessione di debug è automaticamente configurata nell'editor dai Developer Tools.
+  \item É possibile avviare l'applicazione sviluppata sia dal Flipper Zero che lanciandola tramite il tool \texttt{fbt} distribuito nei Developer Tools da un apposito PC collegato al Flipper Xero via USB, entrambe le modalità permettono il debugging.
+\end{itemize}

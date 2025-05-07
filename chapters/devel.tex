@@ -1,10 +1,6 @@
 \chapter{Sviluppo emulatore di FAAC XR2}
 \label{cha:development}
 
-\section{Introduzione alla programmazione su Flipper Zero e idea dell’app}
-\label{sec:intro_emu}
-
-Flipper Zero mette a disposizione una toolchain notevolmente avanzata che astrae molti degli aspetti della programmazione embedded, tuttavia va sottolineata la relativa mancanza di documentazione approfondita: questo fatto, purtroppo, è limitante vista la notevole quantità di API, funzioni e macro messe a disposizione del programmatore. Inoltre, l’utilizzo del firmware Unleashed, un firmware non ufficiale, introduce un ulteriore grado di difficoltà vista la maggiore scarsità di informazioni riguardo al proprio funzionamento. Buona parte dello sviluppo dell’emulatore si è basato su una progressiva scoperta di nuove funzionalità del firmware partendo dall’osservazione del codice sorgente, da informazioni gentilmente fornite dagli sviluppatori e dall’osservazione di applicazioni sviluppate da altri utenti della comunità. \\
 L’applicazione dell’emulatore sviluppata non intende essere uno strumento necessariamente utile quanto più un “proof of concept” valido per comprendere il comportamento di un ricevitore genuino FAAC XR2. É importante ricordare la natura proprietaria del ricevitore che permette esclusivamente un’implementazione basata sui comportamenti osservati con un utilizzo relativamente standard.
 
 \section{Firmware Unleashed modificato ad-hoc}
