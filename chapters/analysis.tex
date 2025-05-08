@@ -74,7 +74,7 @@ I 4 byte più significativi (\texttt{XX XX XX XY}) rappresentano quello che vien
 Si potrebbe pensare a questi due elementi come l’username (il code fix) e la password (il code hop) di un tradizionale login form.
 Si è rilevato che il ricevitore apparentemente accetti esclusivamente trasmettitori con valore serial entro il range [A0000000--A0FFFFFF] in questa maniera:\\
 \begin{itemize}
-  \item Si emulano vari radiocomandi FAAC SLH tramite la funzionalità “Add manually” \textgreater “Faac SLH 433MHz” sul Flipper Zero (firmware Unleashed necessario)
+  \item Si emulano vari radiocomandi FAAC SLH tramite la funzionalità \texttt{Add manually} \(\rightarrow\) \texttt{Faac SLH 433MHz} sul Flipper Zero (firmware Unleashed necessario)
   \item Si inviano vari segnali con vari differenti valori di “code fix”, count invariato e seed invariato
   \item Si osserva che solo valori di code fix compresi nel range precedentemente menzionati si autenticano correttamente nel ricevitore.
 \end{itemize}
@@ -188,7 +188,7 @@ Prima di tutto si può osservare che il counter interno del ricevitore deve esse
 In secundis, il valore di count ha un comportamento ciclico: arrivato al valore \texttt{0xFFFFF} il counter ritorna al valore \texttt{0x00000} e continua ad autenticare correttamente.\\
 Il ricevitore accetta valori del count che distano di massimo 0x20 (32) valori dopo l’ultimo autenticato.\\
 Oltre i 32 valori accettati ed entro 0x8000 (32768) valori dopo l’ultimo autenticato il segnale è considerato futuro. In questo caso il ricevitore non autentica il radiocomando ma tenta una resincronizzazione. Per resincronizzare il counter interno del ricevitore è necessaria un’altra chiave normale futura entro il range precedentemente menzionato di futuro e appena successiva, cioè il counter della seconda chiave deve essere esattamente successivo a quello della prima futura. La necessità di due chiavi sequenziali per la resincronizzazione al futuro restringe il massimo valore che può avere un radiocomando per resincronizzare il ricevitore a counter + 0x7FFF.\\
-Un comportamento interessante si può osservare inviando una sequenza di 4 chiavi di questo tipo: chiave accettabile \textgreater chiave futura \textgreater chiave accettabile \textgreater chiave futura. Elenchiamo i comportamenti del ricevitore ad ogni chiave ricevuta:
+Un comportamento interessante si può osservare inviando una sequenza di 4 chiavi di questo tipo: chiave accettabile \(\rightarrow\) chiave futura \(\rightarrow\) chiave accettabile \(\rightarrow\) chiave futura. Elenchiamo i comportamenti del ricevitore ad ogni chiave ricevuta:
 \begin{itemize}
   \item Alla prima accettabile il ricevitore autentica correttamente
   \item Alla prima chiave futura il ricevitore non autentica il radiocomando
