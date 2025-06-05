@@ -5,7 +5,7 @@
 \label{appendix:slhseed}
 
 Di seguito è mostrato il codice che viene eseguito nel Flipper Zero (firmware Unleashed) \cite{firmware} e, ipoteticamente, nel ricevitore FAAC XR2 per la decodifica del seed da una chiave di programmazione.
-\begin{lstlisting}[language=C,basicstyle=\small]
+\begin{lstlisting}[language=C]
 if(((data_prg[7] == 0x52) && (data_prg[6] == 0x0F) && (data_prg[0] == 0x00))) {
     faac_prog_mode = true;
     // ProgMode ON
@@ -41,7 +41,7 @@ if(((data_prg[7] == 0x52) && (data_prg[6] == 0x0F) && (data_prg[0] == 0x00))) {
 
 Di seguito sono riportate le varie implementazioni degli algoritmi di FAAC SLH e KeeLoq nel firmware Unleashed \cite{firmware} del Flipper Zero.\\
 La seguente funzione restituisce la chiave a 64 bit necessaria in KeeLoq a partire dal seed e dalla manufacturer key. Questa funzione si trova nel file \texttt{lib/subghz/protocols/keeloq\_common.c}.
-\begin{lstlisting}[language=C,basicstyle=\small]
+\begin{lstlisting}[language=C]
 inline uint64_t subghz_protocol_keeloq_common_faac_learning
     (const uint32_t seed, const uint64_t key) {
     uint16_t hs = seed >> 16;
@@ -55,7 +55,7 @@ inline uint64_t subghz_protocol_keeloq_common_faac_learning
 \end{lstlisting}
 
 La seguente funzione è l'implementazione della fase di crittografia di KeeLoq. Questa funzione si trova nel file \texttt{lib/subghz/protocols/keeloq\_common.c}.
-\begin{lstlisting}[language=C,basicstyle=\small]
+\begin{lstlisting}[language=C]
 inline uint32_t subghz_protocol_keeloq_common_encrypt
     (const uint32_t data, const uint64_t key) {
     uint32_t x = data, r;
@@ -67,7 +67,7 @@ inline uint32_t subghz_protocol_keeloq_common_encrypt
 \end{lstlisting}
 
 La seguente funzione è l'implementazione della fase di decrittografia di KeeLoq. Questa funzione si trova nel file \texttt{lib/subghz/protocols/keeloq\_common.c}.
-\begin{lstlisting}[language=C,basicstyle=\small]
+\begin{lstlisting}[language=C]
 inline uint32_t subghz_protocol_keeloq_common_decrypt
     (const uint32_t data, const uint64_t key) {
     uint32_t x = data, r;
@@ -80,7 +80,7 @@ inline uint32_t subghz_protocol_keeloq_common_decrypt
 \end{lstlisting}
 
 Il seguente segmento di codice estrae il valore del counter a partire dal code hop sfruttando le funzioni sopra riportate. Questa funzione si trova nel file \texttt{lib/subghz/protocols/faac\_slh.c}.
-\begin{lstlisting}[language=C,basicstyle=\small]
+\begin{lstlisting}[language=C]
 for
   M_EACH(manufacture_code, *subghz_keystore_get_data(keystore), SubGhzKeyArray_t) {
       switch(manufacture_code->type) {
@@ -100,7 +100,7 @@ instance->cnt = decrypt & 0xFFFFF;
 \label{appendix:cuda}
 
 Di seguito è riportato il codice in CUDA dell'algoritmo di brute forcing del seed di FAAC SLH. Tale algoritmo assume che due chiavi normali in sequnza siano state catturate e ne prende in input i due code hop ed il code fix.
-\begin{lstlisting}[language=C++,basicstyle=\small,showstringspaces=false]
+\begin{lstlisting}[language=C++,showstringspaces=false]
 #include <cstdlib>
 #include <stdio.h>
 #include <stdlib.h>

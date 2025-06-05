@@ -1,6 +1,8 @@
 \chapter{Sviluppo emulatore di FAAC XR2}
 \label{cha:development}
 
+Il codice sorgente dell'applicazione per Flipper Zero sviluppata durante il lavoro è reso open-source e disponibile su GitHub al link \url{https://github.com/alemarostica/faac-slh-433-rx-emulator}.
+Un'aggiuntiva repository è stata creata
 L’applicazione \cite{app} dell’emulatore sviluppata non intende essere uno strumento necessariamente utile quanto più un “proof of concept” valido per comprendere il comportamento di un ricevitore genuino FAAC XR2. É importante ricordare la natura proprietaria del ricevitore che permette esclusivamente un’implementazione basata sui comportamenti osservati con un utilizzo relativamente standard.
 
 \section{Firmware Unleashed modificato ad-hoc}
@@ -14,22 +16,22 @@ Durante lo sviluppo dell’emulatore si presenta un problema: alla ricezione di 
 \end{itemize}
 Il secondo problema è facilmente risolvibile con alcune linee di codice sotto riportate, la risoluzione del primo problema richiederebbe una notevole ristrutturazione del codice del firmware, al di fuori dello scopo di questo studio.\\
 Le modifiche apportate si trovano nel file \texttt{lib/subghz/protocols/faac\_slh.c}, a inizio file viene aggiunta la linea:
-\begin{lstlisting}[language=C,basicstyle=\small]
+\begin{lstlisting}[language=C]
   static bool already_programmed = false;
 \end{lstlisting}
 Questa variabile bloccherà lo stato della variabile seed interna al ricevitore una volta che questo è stato settato.\\
 Nella funzione di allocazione del decoder di FAAC SLH viene aggiunta questa linea:
-\begin{lstlisting}[language=C,basicstyle=\small]
+\begin{lstlisting}[language=C]
   already_programmed = false;
 \end{lstlisting}
 In questo modo, alla deallocazione del ricevitore sarà di nuovo possibile memorizzare un nuovo seed.\\
 Nella funzione \texttt{subghz\_protocol\_faac\_slh\_check\_remote\_controller}, durante la fase di decodifica della chiave di programmazione, la linea
-\begin{lstlisting}[language=C,basicstyle=\small]
+\begin{lstlisting}[language=C]
   instance->seed = data_prg[5] << 24 | data_prg[4] << 16 |
                    data_prg[3] << 8 | data_prg[2];
 \end{lstlisting}
 viene sostituita con
-\begin{lstlisting}[language=C,basicstyle=\small]
+\begin{lstlisting}[language=C]
   if(!already_programmed) {
       instance->seed = data_prg[5] << 24 | data_prg[4] << 16 |
                        data_prg[3] << 8 | data_prg[2];
@@ -37,7 +39,7 @@ viene sostituita con
   }
 \end{lstlisting}
 Questo blocco condizionale controlla lo stato della precedente variabile \texttt{already\_programmed} e determina se è possibile aggiornare il seed interno al ricevitore o meno. Inoltre, nel momento in cui il seed è aggiornato si imposta la variabile flag a \texttt{true} cosicché qualsiasi successivo tentativo di aggiornamento del seed sarà ignorato.\\
-Una fork del codice sorgente di Unleashed è stata creata e modificata appositamente \cite{firmware_mod}.
+Una fork del codice sorgente di Unleashed è stata creata e modificata appositamente e può essere trovata al link \url{https://github.com/alemarostica/unleashed-firmware}.
 
 \section{Struttura del codice sorgente}
 \label{sec:source}
