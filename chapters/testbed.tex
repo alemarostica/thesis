@@ -17,9 +17,29 @@ A risolvere questo problema entra in gioco un firmware non ufficiale: Unleashed 
 \section{Programmare su Flipper Zero}
 \label{sec:flip_prog}
 
-Un notevole problema riscontrato durante questo studio è la relativa mancanza di documentazione del codice sorgente. Seppure strutture dati e funzioni siano discretamente descritte, manca un qualche documento che aiuti un principiante ad introdursi alla programmazione su Flipper Zero. Per comprendere come avviene lo sviluppo di un'applicazione è necessario spendere tempo leggendo il codice sorgente di altre applicazioni esistenti o seguendo guide online che, tuttavia, tendono a non essere né approfondite né aggiornate. A questo proposito la playlist "Flipper Zero - CODE" di Derek Jamison su YouTube si è rivelata molto utile \cite{derek}.\\
-Il Flipper Zero è di norma in grado di riportare precisamente errori che ne hanno causato il crash, per esempio \texttt{NULL pointer dereference}, \texttt{BusFault}, \texttt{furi\_check failed} e altri. Tuttavia, durante lo sviluppo dell'emulatore, si è osservato come una gestione erronea di puntatori e memoria dinamica porti a comportamenti imprevedibili nel Flipper Zero: in particolare, provare ad accedere a memoria deallocata non sempre cause l'errore \texttt{NULL pointer dereference}. A questo proposito è importante l'utilizzo della devboard per effettuare debugging linea per linea del codice dell'applicazione.\\
-Anche la documentazione sull'utilizzo della devboard è scarsa \cite{devboard}. Il seguente procedimento per effettuare debugging si è rilevato efficiente e affidabile:
+Per lo sviluppo di questo progetto è stato impiegato l'editor Visual Studio Code, scelto per l'ampio supporto disponibile e per la predisposizione della toolchain di sviluppo per Flipper Zero.\\
+Il team di Flipper Zero ha messo a disponizione una toolchain per lo sviluppo composta del tool \texttt{fbt} \cite{fbt} che costituisce un entry point per vari comandi e utilità legate al firmware del dispositivo. Inoltre un insieme di impostazioni dell'editor VSCode può essere inizializzato tramite il comando \texttt{./fbt vscode\_dist}, questo permetterà di eseguire numerosi comandi tramite la funzionalità "Tasks" dell'editor e di avere una corretta evidenziazione di sintassi.\\
+Alcuni comandi utili del tool \texttt{fbt} sono:
+\begin{itemize}
+  \item \texttt{./fbt COMPACT=[0|1] DEBUG=[0|1] FORCE=[0|1] flash\_usb\_full} per caricare un firmware sul dispositivo. I parametri hanno i seguenti ruoli:
+  \begin{itemize}
+    \item \texttt{COMPACT} applica delle ottimizzazioni alla compilazione se il valore è 1, è consigliabile disabilitarlo per evitare problemi durante il debugging.
+    \item \texttt{DEBUG} se abilitato compila con simboli e funzionalità per il debug abilitate, è necessario abilitare questo parametro per effettuare debugging.
+    \item \texttt{FORCE} forza l'operazione specificata, questo parametro è necessario per caricare il firmware in maniera pulita.
+  \end{itemize}
+  \item \texttt{./fbt COMPACT=[0|1] DEBUG=[0|1] launch APPSRC=[percorso applicazione]} per lanciare un'applicazione dell'utente sul dispositivo. I parametri hanno i seguenti ruoli:
+  \begin{itemize}
+    \item \texttt{COMPACT} e \texttt{DEBUG} svolgono lo stesso ruolo menzionato precedentemente ma applicato alla specifica applicazione lanciata.
+    \item \texttt{APPSRC} specifica il percorso dell'applicazione, solitamente l'applicazione è composta da una cartella posta in \texttt{applications\_user}.
+  \end{itemize}
+\end{itemize}
+
+\section{Debugging su Flipper Zero}
+\label{sec:flip_dbg}
+
+Tramite il dispositivo WiFi DevBoard for Flipper Zero è possibile effettuare debug del software sviluppato per il dispositivo tramite l'editor.\\
+Come descritto sulla documentazione è consigliabile effettuare un aggiornamento del firmware della devboard prima di usarla per debugging. Inoltre, per poter leggere il log generato dall'esecuzione di funzioni quali \texttt{FURI\_LOG\_[D|I|W|E]}, è necessaria la configurazione del software "minicom" per leggere l'output seriale del dispositivo. Entrambi questi procedimenti sono descritti sulla documentazione della devboard \cite{devboard}.\\
+Il seguente procedimento per effettuare debugging si è rilevato efficiente e affidabile:
 \begin{itemize}
   \item Si connette la devboard al Flipper Zero spento
   \item Si connette la devboard tramite USB al PC
@@ -28,10 +48,11 @@ Anche la documentazione sull'utilizzo della devboard è scarsa \cite{devboard}. 
   \item Si lancia la sessione di debug
   \item Si lancia l'applicazione sviluppata sul Flipper Zero, la sessione di debug incontrerà un breakpoint automatico che permetterà di impostare aggiuntivi breakpoint nel codice dell'applicazione sviluppata
 \end{itemize}
+
+\section{Problematiche riscontrate}
+\label{sec:flip_probs}
+
+Un notevole problema riscontrato durante questo studio è la relativa mancanza di documentazione del codice sorgente. Seppure strutture dati e funzioni siano discretamente descritte, manca un qualche documento che aiuti un principiante ad introdursi alla programmazione su Flipper Zero. Per comprendere come avviene lo sviluppo di un'applicazione è necessario spendere tempo leggendo il codice sorgente di altre applicazioni esistenti o seguendo guide online che, tuttavia, tendono a non essere né approfondite né aggiornate. A questo proposito la playlist "Flipper Zero - CODE" di Derek Jamison su YouTube si è rivelata molto utile \cite{derek}.\\
+Il Flipper Zero è di norma in grado di riportare precisamente errori che ne hanno causato il crash, per esempio \texttt{NULL pointer dereference}, \texttt{BusFault}, \texttt{furi\_check failed} e altri. Tuttavia, durante lo sviluppo dell'emulatore, si è osservato come una gestione erronea di puntatori e memoria dinamica porti a comportamenti imprevedibili nel Flipper Zero: in particolare, provare ad accedere a memoria deallocata non sempre causa l'errore \texttt{NULL pointer dereference}. A questo proposito è importante l'utilizzo della devboard per effettuare debugging linea per linea del codice dell'applicazione.\\
+Anche la documentazione sull'utilizzo della devboard è scarsa.
 Di norma e da istruzioni del firmware Unleashed \cite{firmware}, sia applicazioni che firmware sono compilate con il parametro \texttt{COMPACT=1}, questo sembra introdurre delle specifiche ottimizzazioni che sembrano confondere il debugger in fase di operazione. Per risolvere questo problema è semplicemente necessario ricompilare firmware e applicazioni con parametro \texttt{COMPACT=0} tramite \texttt{fbt}.
-Alcune note:
-\begin{itemize}
-  \item É stato usato Visual Studio Code impostato come descritto nella documentazione per sviluppatori \cite{devtools}.
-  \item La sessione di debug è automaticamente configurata nell'editor dalla toolchain.
-  \item É possibile avviare l'applicazione sviluppata sia dal Flipper Zero che lanciandola tramite il tool \texttt{fbt} distribuito nei Developer Tools da un apposito PC collegato al Flipper Xero via USB, entrambe le modalità permettono il debugging.
-\end{itemize}
