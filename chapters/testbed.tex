@@ -14,6 +14,17 @@ Le funzionalità più cruciali per questo studio sono due:
 Queste funzionalità sono già implementate nel firmware ufficiale \cite{off_firmware} ma, in particolare, il protocollo FAAC SLH è implementato solo parzialmente: alcune trasmissioni speciali non sono correttamente analizzate dal Flipper Zero e non è disponibile l'emulazione di un radiocomando FAAC SLH.\\
 A risolvere questo problema entra in gioco un firmware non ufficiale: Unleashed \cite{firmware}. Quest'ultimo implementa completamente il protocollo FAAC SLH e ne permette l'emulazione.\\
 
+\section{Funzionalità sfruttate}
+\label{sec:flip_func}
+
+Il firmware del dispositivo dispone di due funzioni cruciali per questo studio, nel sottomenù \texttt{Sub-GHz} troviamo la possibilità di:
+\begin{itemize}
+  \item Intercettare e decodificare segnali sotto la sezione \texttt{Read}.
+  \item Intercettare segnali anche sconosciuti sotto la sezione \texttt{Read RAW}.
+  \item Emulare un radiocomando dal protocollo noto configurandolo manualmente sotto la sezione \texttt{Add manually}.
+\end{itemize}
+Qualsiasi segnale che viene intercettato o emulato dal dispositivo può essere salvato in memoria e consultato da PC tramite il software "qFlipper" \cite{qflipper}. Questo software permette inoltre aggiornamenti del firmware ufficiale e recupero del dispositivo in situazioni in cui il firmware è irreversibilmente danneggiato.
+
 \section{Programmare su Flipper Zero}
 \label{sec:flip_prog}
 
