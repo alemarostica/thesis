@@ -45,6 +45,17 @@ Alcuni comandi utili del tool \texttt{fbt} sono:
   \end{itemize}
 \end{itemize}
 
+Le funzioni disponibili nella toolchain del Flipper Zero che vengono utilizzate in questo progetto sono numerose, alcune delle più rilevanti sono:
+\begin{itemize}
+  \item Funzioni con prefisso \texttt{furi\_hal}: sono funzioni che astraggono alcune capacità dell'hardware (Hardware Abstraction Layer), permettono di, per esempio, emettere vibrazione, accendere il led o gestire l'alimentazione USB (che, durante la ricezione subghz, conviene disabilitare per evitare interferenze).
+  \item Funzioni con prefisso \texttt{furi\_string}: sono funzioni che permettono la manipolazione della struttura \texttt{FuriString}, un wrapper che espande le capacità della stringa standard di C. Va notato come differenti funzioni nel Flipper Zero possano richiedere l'oggetto \texttt{FuriString} o una stringa standard di C, per ottenere quest'ultima dalla prima esiste la funzione \texttt{furi\_string\_get\_cstr}, viceversa, per inserire caratteri in un oggetto \texttt{FuriString} partendo da una stringa standard esiste la funzione \texttt{furi\_string\_printf}.
+  \item Funzioni con prefisso \texttt{canvas}: sono funzioni che gestiscono la creazione e modifica dell'immagine che appare sullo schermo del Flipper Zero.
+  \item Funzioni con prefisso \texttt{view\_dispatcher}: sono funzioni che gestiscono il View Dispatcher, un meccanismo che permette la navigazione tra vari sottomenù e varie schermate di un'aplicazione.
+  \item Funzioni con prefisso \texttt{submenu} o \texttt{widget}: queste funzioni gestiscono rispettivamente i Submenu e i Widget, alcune schermate predisposte allo specifico ruolo descritto dal loro nome.
+  \item Funzioni con prefisso \texttt{subghz}: come suggerito dal nome, queste funzioni gestiscono tutto cià che ha a che fare con la funzionalità subghz del dispositivo. Spesso la loro funzione non è charissima nonostante l'espressività del nome.
+  \item Funzioni con prefisso \texttt{FURI\_LOG}: sono delle macro variadiche che stampano la stringa fornita nel livello di logging appropriato (accessibile, come spiegato a breve, tramite WiFi Devboard). I differenti livelli sono: Error (\texttt{FURI\_LOG\_E}), Warning (\texttt{FURI\_LOG\_W}), Info (\texttt{FURI\_LOG\_I}), Debug (\texttt{FURI\_LOG\_D}) e Trace (\texttt{FURI\_LOG\_T}).
+\end{itemize}
+
 \section{Debugging su Flipper Zero}
 \label{sec:flip_dbg}
 
