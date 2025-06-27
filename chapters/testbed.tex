@@ -1,15 +1,15 @@
 \chapter{Testbed: il Flipper Zero}
 \label{cha:testbed}
 
-\section{Dispositivo e funzionalità}
+\section{Panoramica del dispositivo}
 \label{sec:device}
 
 Il Flipper Zero è un dispositivo portatile multi-strumento progettato per interagire con sistemi digitali ed hardware. Nell'ambito di questo studio sono notevoli le capacità di lettura, analisi, trasmissione e clonazione di segnali su frequenze subghz (\textless1GHz).\\
 Di notevole rilevanza è la natura modulare ed open source del dispositivo che ne permette all'utente il pieno controllo del firmware. Inoltre offre funzionalità di debugging tramite firmware blackmagic (implementato nel dispositivo WiFi DevBoard for Flipper Zero).\\
 Le funzionalità più cruciali per questo studio sono due:
 \begin{itemize}
-  \item Il Flipper Zero è in grado di intercettare un segnale subghz (FAAC SLH in questo caso), analizzarlo e decodificarlo secondo le possibilità dell'algoritmo
-  \item Il Flipper Zero è in grado di emulare numerosi protocolli subghz di radiocomandi per sistemi di accesso
+  \item Il Flipper Zero è in grado di intercettare un segnale subghz (FAAC SLH in questo caso), analizzarlo e decodificarlo secondo le possibilità dell'algoritmo implementato.
+  \item Il Flipper Zero è in grado di emulare numerosi protocolli subghz di radiocomandi per sistemi di accesso.
 \end{itemize}
 Queste funzionalità sono già implementate nel firmware ufficiale \cite{off_firmware} ma, in particolare, il protocollo FAAC SLH è implementato solo parzialmente: alcune trasmissioni speciali non sono correttamente analizzate dal Flipper Zero e non è disponibile l'emulazione di un radiocomando FAAC SLH.\\
 A risolvere questo problema entra in gioco un firmware non ufficiale: Unleashed \cite{firmware}. Quest'ultimo implementa completamente il protocollo FAAC SLH e ne permette l'emulazione.\\
@@ -23,13 +23,13 @@ Il firmware del dispositivo dispone di due funzioni cruciali per questo studio, 
   \item Intercettare segnali anche sconosciuti sotto la sezione \texttt{Read RAW}.
   \item Emulare un radiocomando dal protocollo noto configurandolo manualmente sotto la sezione \texttt{Add manually}.
 \end{itemize}
-Qualsiasi segnale che viene intercettato o emulato dal dispositivo può essere salvato in memoria e consultato da PC tramite il software "qFlipper" \cite{qflipper}. Questo software permette inoltre aggiornamenti del firmware ufficiale e recupero del dispositivo in situazioni in cui il firmware è irreversibilmente danneggiato.
+Qualsiasi segnale che viene intercettato o emulato dal dispositivo può essere salvato in memoria e consultato da PC tramite il software "qFlipper" \cite{qflipper}. Questo software permette inoltre aggiornamenti del firmware ufficiale e recupero del dispositivo in situazioni in cui il firmware è irreversibilmente compromesso.
 
 \section{Programmare su Flipper Zero}
 \label{sec:flip_prog}
 
 Per lo sviluppo di questo progetto è stato impiegato l'editor Visual Studio Code, scelto per l'ampio supporto disponibile e per la predisposizione della toolchain di sviluppo per Flipper Zero.\\
-Il team di Flipper Zero ha messo a disponizione una toolchain per lo sviluppo composta del tool \texttt{fbt} \cite{fbt} che costituisce un entry point per vari comandi e utilità legate al firmware del dispositivo. Inoltre un insieme di impostazioni dell'editor VSCode può essere inizializzato tramite il comando \texttt{./fbt vscode\_dist}, questo permetterà di eseguire numerosi comandi tramite la funzionalità "Tasks" dell'editor e di avere una corretta evidenziazione di sintassi.\\
+Il team di Flipper Zero ha messo a disponizione una toolchain per lo sviluppo composta del tool \texttt{fbt} \cite{fbt} che costituisce un punto d'ingresso per vari comandi e utilità legate al firmware del dispositivo. Inoltre un insieme di impostazioni dell'editor VSCode può essere inizializzato tramite il comando \texttt{./fbt vscode\_dist}, questo permetterà di eseguire numerosi comandi tramite la funzionalità "Tasks" dell'editor e di avere una corretta evidenziazione di sintassi.\\
 Alcuni comandi utili del tool \texttt{fbt} sono:
 \begin{itemize}
   \item \texttt{./fbt COMPACT=[0|1] DEBUG=[0|1] FORCE=[0|1] flash\_usb\_full} per caricare un firmware sul dispositivo. I parametri hanno i seguenti ruoli:
@@ -48,11 +48,11 @@ Alcuni comandi utili del tool \texttt{fbt} sono:
 Le funzioni disponibili nella toolchain del Flipper Zero che vengono utilizzate in questo progetto sono numerose, alcune delle più rilevanti sono:
 \begin{itemize}
   \item Funzioni con prefisso \texttt{furi\_hal}: sono funzioni che astraggono alcune capacità dell'hardware (Hardware Abstraction Layer), permettono di, per esempio, emettere vibrazione, accendere il led o gestire l'alimentazione USB (che, durante la ricezione subghz, conviene disabilitare per evitare interferenze).
-  \item Funzioni con prefisso \texttt{furi\_string}: sono funzioni che permettono la manipolazione della struttura \texttt{FuriString}, un wrapper che espande le capacità della stringa standard di C. Va notato come differenti funzioni nel Flipper Zero possano richiedere l'oggetto \texttt{FuriString} o una stringa standard di C, per ottenere quest'ultima dalla prima esiste la funzione \texttt{furi\_string\_get\_cstr}, viceversa, per inserire caratteri in un oggetto \texttt{FuriString} partendo da una stringa standard esiste la funzione \texttt{furi\_string\_printf}.
+  \item Funzioni con prefisso \texttt{furi\_string}: sono funzioni che permettono la manipolazione della struttura \texttt{FuriString}, un wrapper che estende le capacità della stringa standard di C. Va notato come differenti funzioni nel Flipper Zero possano richiedere l'oggetto \texttt{FuriString} o una stringa standard di C, per ottenere quest'ultima dalla prima esiste la funzione \texttt{furi\_string\_get\_cstr}, viceversa, per inserire caratteri in un oggetto \texttt{FuriString} partendo da una stringa standard esiste la funzione \texttt{furi\_string\_printf}.
   \item Funzioni con prefisso \texttt{canvas}: sono funzioni che gestiscono la creazione e modifica dell'immagine che appare sullo schermo del Flipper Zero.
   \item Funzioni con prefisso \texttt{view\_dispatcher}: sono funzioni che gestiscono il View Dispatcher, un meccanismo che permette la navigazione tra vari sottomenù e varie schermate di un'aplicazione.
   \item Funzioni con prefisso \texttt{submenu} o \texttt{widget}: queste funzioni gestiscono rispettivamente i Submenu e i Widget, alcune schermate predisposte allo specifico ruolo descritto dal loro nome.
-  \item Funzioni con prefisso \texttt{subghz}: come suggerito dal nome, queste funzioni gestiscono tutto cià che ha a che fare con la funzionalità subghz del dispositivo. Spesso la loro funzione non è charissima nonostante l'espressività del nome.
+  \item Funzioni con prefisso \texttt{subghz}: come suggerito dal nome, queste funzioni gestiscono tutto ciò che ha a che fare con la funzionalità subghz del dispositivo. Spesso la loro funzione non è charissima nonostante l'espressività del nome.
   \item Funzioni con prefisso \texttt{FURI\_LOG}: sono delle macro variadiche che stampano la stringa fornita nel livello di logging appropriato (accessibile, come spiegato a breve, tramite WiFi Devboard). I differenti livelli sono: Error (\texttt{FURI\_LOG\_E}), Warning (\texttt{FURI\_LOG\_W}), Info (\texttt{FURI\_LOG\_I}), Debug (\texttt{FURI\_LOG\_D}) e Trace (\texttt{FURI\_LOG\_T}).
 \end{itemize}
 
@@ -60,15 +60,15 @@ Le funzioni disponibili nella toolchain del Flipper Zero che vengono utilizzate 
 \label{sec:flip_dbg}
 
 Tramite il dispositivo WiFi DevBoard for Flipper Zero è possibile effettuare debug del software sviluppato per il dispositivo tramite l'editor.\\
-Come descritto sulla documentazione è consigliabile effettuare un aggiornamento del firmware della devboard prima di usarla per debugging. Inoltre, per poter leggere il log generato dall'esecuzione di funzioni quali \texttt{FURI\_LOG\_[D|I|W|E]}, è necessaria la configurazione del software "minicom" per leggere l'output seriale del dispositivo. Entrambi questi procedimenti sono descritti sulla documentazione della devboard \cite{devboard}.\\
+Come descritto sulla documentazione è consigliabile effettuare un aggiornamento del firmware della devboard prima di usarla per debugging. Inoltre, per poter leggere il log generato dall'esecuzione di funzioni quali \texttt{FURI\_LOG\_[E|W|I|D|T]}, è necessaria la configurazione del software "minicom" per leggere l'output seriale del dispositivo. Entrambi questi procedimenti sono descritti sulla documentazione della devboard \cite{devboard}.\\
 Il seguente procedimento per effettuare debugging si è rilevato efficiente e affidabile:
 \begin{itemize}
-  \item Si connette la devboard al Flipper Zero spento
-  \item Si connette la devboard tramite USB al PC
-  \item Si accende il Flipper Zero normalmente o connettendolo via USB al cavo
-  \item Si modifica l'impostazione in \texttt{Settings} \(\rightarrow\) \texttt{System} \(\rightarrow\) \texttt{Debug} al valore \texttt{ON}
-  \item Si lancia la sessione di debug
-  \item Si lancia l'applicazione sviluppata sul Flipper Zero, la sessione di debug incontrerà un breakpoint automatico che permetterà di impostare aggiuntivi breakpoint nel codice dell'applicazione sviluppata
+  \item Si connette la devboard al Flipper Zero spento.
+  \item Si connette la devboard tramite USB al PC.
+  \item Si accende il Flipper Zero normalmente o connettendolo via USB al PC.
+  \item Si modifica l'impostazione in \texttt{Settings} \(\rightarrow\) \texttt{System} \(\rightarrow\) \texttt{Debug} al valore \texttt{ON}.
+  \item Si lancia la sessione di debug.
+  \item Si lancia l'applicazione sviluppata sul Flipper Zero, la sessione di debug incontrerà un breakpoint automatico che permetterà di impostare aggiuntivi breakpoint nel codice dell'applicazione sviluppata.
 \end{itemize}
 
 \section{Problematiche riscontrate}
